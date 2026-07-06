@@ -853,6 +853,20 @@
   </div>
 </div>
 
+<!-- 異常處理彈出視窗 -->
+<div class="modal-overlay" id="abnormalModalOverlay" onclick="closeAbnormalModal(event)">
+  <div class="modal-card" onclick="event.stopPropagation()">
+    <div class="modal-header">
+      <div>
+        <div class="modal-title">⚠ 異常處理紀錄</div>
+        <div class="modal-sub" id="abnormalModalSub"></div>
+      </div>
+      <button class="modal-close" onclick="closeAbnormalModal()">✕</button>
+    </div>
+    <div id="abnormalModalBody"></div>
+  </div>
+</div>
+
 <!-- Print Area (hidden, filled by exportPDF) -->
 <div id="printArea" style="display:none"></div>
 
@@ -1879,8 +1893,10 @@ function renderTodayView() {
       const areaKey = campus + '_' + dept.key;
       const savedArea = currentArea;
       currentArea = areaKey;
+      loadData(currentMonth); // 重新載入該部門自己的資料，避免讀到記憶體中殘留的其他部門資料
       const entry = getEntry(d, currentSession);
       currentArea = savedArea;
+      loadData(currentMonth); // 還原成目前實際檢視部門的資料
       const fT = v => (v!==''&&v!==undefined&&v!==null&&!isNaN(parseFloat(v))) ? parseFloat(v).toFixed(1) : '';
       return {
         key: dept.key, label: dept.label, areaKey,
@@ -1946,49 +1962,22 @@ function renderTodayView() {
             oninput="hidePresetReasons('${dept.key}')"
             onchange="setEntryByArea('${dept.areaKey}',${d},'${currentSession}','reason',this.value)">
 
-          <div style="margin-top:8px;padding-top:8px;border-top:1px dashed #fbbf24;">
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">
-              <div>
-                <label style="display:block;font-size:11px;font-weight:700;color:var(--gray-500);margin-bottom:4px;">是否解除</label>
-                <select onchange="setAbnormalField('${dept.areaKey}',${d},'${currentSession}','resolved',this.value)"
-                  style="width:100%;padding:9px 8px;border-radius:8px;font-size:14px;font-family:inherit;font-weight:700;
-                         border:1.5px solid ${dept.resolved?'var(--gray-200)':'var(--red)'};
-                         color:${dept.resolved==='Y'?'var(--green)':dept.resolved==='N'?'var(--red)':'var(--gray-400)'};
-                         background:${dept.resolved?'white':'#fff5f5'};">
-                  <option value="" ${dept.resolved===''?'selected':''}>— 必填 —</option>
-                  <option value="Y" ${dept.resolved==='Y'?'selected':''}>Y（是）</option>
-                  <option value="N" ${dept.resolved==='N'?'selected':''}>N（否）</option>
-                </select>
-              </div>
-              <div>
-                <label style="display:block;font-size:11px;font-weight:700;color:var(--gray-500);margin-bottom:4px;">回復溫(溼)度</label>
-                <input type="text" value="${dept.recovery}" placeholder="必填"
-                  onchange="setAbnormalField('${dept.areaKey}',${d},'${currentSession}','recovery',this.value)"
-                  style="width:100%;padding:9px 8px;border-radius:8px;font-size:14px;font-family:inherit;box-sizing:border-box;text-align:center;
-                         border:1.5px solid ${dept.recovery?'var(--gray-200)':'var(--red)'};
-                         background:${dept.recovery?'white':'#fff5f5'};">
-              </div>
-            </div>
-            <div style="margin-bottom:8px;">
-              <label style="display:block;font-size:11px;font-weight:700;color:var(--gray-500);margin-bottom:4px;">處理方式</label>
-              <input type="text" value="${dept.handling}" placeholder="必填，請填寫實際處理方式"
-                onchange="setAbnormalField('${dept.areaKey}',${d},'${currentSession}','handling',this.value)"
-                style="width:100%;padding:9px 10px;border-radius:8px;font-size:14px;font-family:inherit;box-sizing:border-box;
-                       border:1.5px solid ${dept.handling?'var(--gray-200)':'var(--red)'};
-                       background:${dept.handling?'white':'#fff5f5'};">
-            </div>
-            <div style="text-align:center;">
-              ${dept.confirmedBy
-                ? `<span class="signed-badge">✅ ${dept.confirmedBy.name} 已確認　${dept.confirmedBy.time||''}</span>`
-                : isSupervisor(currentUser?.id)
-                  ? `<button onclick="confirmAbnormal('${dept.areaKey}',${d},'${currentSession}')"
-                       style="padding:8px 24px;background:var(--teal);color:white;border:none;
-                              border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;">
-                       組長確認
-                     </button>`
-                  : `<span style="font-size:11px;color:var(--gray-400);">待組長確認</span>`
-              }
-            </div>
+          <div id="abn-status-${dept.key}" style="margin-top:8px;">
+            ${(dept.resolved && dept.handling && dept.recovery)
+              ? `<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;background:var(--green-light);border-radius:8px;padding:8px 12px;">
+                   <span style="font-size:12px;color:var(--green);font-weight:700;">✅ 異常處理已完成${dept.confirmedBy ? '（已由組長確認）' : '（待組長確認）'}</span>
+                   <button onclick="openAbnormalModal('${dept.areaKey}',${d},'${currentSession}','${dept.key}')"
+                     style="padding:5px 12px;background:white;border:1.5px solid var(--gray-300);color:var(--gray-700);
+                            border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;white-space:nowrap;">
+                     編輯
+                   </button>
+                 </div>`
+              : `<button onclick="openAbnormalModal('${dept.areaKey}',${d},'${currentSession}','${dept.key}')"
+                   style="width:100%;padding:10px;background:var(--amber);color:white;border:none;
+                          border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;">
+                   📋 填寫異常處理紀錄
+                 </button>`
+            }
           </div>
         </div>
       </div>`).join('')}
@@ -2220,6 +2209,115 @@ function setReasonByArea(areaKey, day, session, text) {
 function hidePresetReasons(deptKey) {
   const wrap = document.getElementById('preset-reasons-' + deptKey);
   if(wrap) wrap.style.display = 'none';
+}
+
+// ══════════ 異常處理彈出視窗 ══════════
+let abnormalModalCtx = null; // { areaKey, day, session, deptKey }
+
+function openAbnormalModal(areaKey, day, session, deptKey) {
+  abnormalModalCtx = { areaKey, day, session, deptKey };
+  renderAbnormalModalBody();
+  document.getElementById('abnormalModalOverlay').classList.add('open');
+}
+
+function closeAbnormalModal(e) {
+  if(e && e.target !== document.getElementById('abnormalModalOverlay')) return;
+  document.getElementById('abnormalModalOverlay').classList.remove('open');
+  abnormalModalCtx = null;
+  renderTable(); // 更新卡片上的完成狀態
+}
+
+function renderAbnormalModalBody() {
+  if(!abnormalModalCtx) return;
+  const { areaKey, day, session, deptKey } = abnormalModalCtx;
+  const savedArea = currentArea;
+  currentArea = areaKey;
+  loadData(currentMonth); // 重新載入該部門自己的資料，避免讀到記憶體中殘留的其他部門資料
+  const e = getEntry(day, session);
+  currentArea = savedArea;
+  loadData(currentMonth); // 還原成目前實際檢視部門的資料
+
+  const campus = areaKey.split('_')[0];
+  const deptLabel = (CAMPUS_DEPTS[campus]||[]).find(x=>x.key===deptKey)?.label || deptKey;
+  document.getElementById('abnormalModalSub').textContent =
+    `${currentMonth}-${String(day).padStart(2,'0')}　${session==='AM'?'上午':'下午'}　${deptLabel}`;
+
+  const resolved = e.resolved || '';
+  const handling = e.handling || '';
+  const recovery = e.recovery || '';
+  const confirmedBy = e.confirmedBy || null;
+
+  document.getElementById('abnormalModalBody').innerHTML = `
+    <div style="margin-bottom:14px;">
+      <label style="display:block;font-size:12px;font-weight:700;color:var(--gray-700);margin-bottom:6px;">異常原因</label>
+      <input type="text" id="modal-abn-reason" value="${e.reason||''}" placeholder="請填寫異常原因"
+        style="width:100%;padding:11px 12px;border:1.5px solid var(--gray-200);border-radius:8px;
+               font-size:15px;font-family:inherit;box-sizing:border-box;">
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;">
+      <div>
+        <label style="display:block;font-size:12px;font-weight:700;color:var(--gray-700);margin-bottom:6px;">是否解除</label>
+        <select id="modal-abn-resolved"
+          style="width:100%;padding:11px 8px;border:1.5px solid var(--gray-200);border-radius:8px;
+                 font-size:15px;font-family:inherit;font-weight:700;box-sizing:border-box;">
+          <option value="" ${resolved===''?'selected':''}>— 請選擇 —</option>
+          <option value="Y" ${resolved==='Y'?'selected':''}>Y（是）</option>
+          <option value="N" ${resolved==='N'?'selected':''}>N（否）</option>
+        </select>
+      </div>
+      <div>
+        <label style="display:block;font-size:12px;font-weight:700;color:var(--gray-700);margin-bottom:6px;">回復溫(溼)度</label>
+        <input type="text" id="modal-abn-recovery" value="${recovery}" placeholder="例如 24.5"
+          style="width:100%;padding:11px 8px;border:1.5px solid var(--gray-200);border-radius:8px;
+                 font-size:15px;font-family:inherit;text-align:center;box-sizing:border-box;">
+      </div>
+    </div>
+    <div style="margin-bottom:16px;">
+      <label style="display:block;font-size:12px;font-weight:700;color:var(--gray-700);margin-bottom:6px;">處理方式</label>
+      <input type="text" id="modal-abn-handling" value="${handling}" placeholder="請填寫實際處理方式"
+        style="width:100%;padding:11px 12px;border:1.5px solid var(--gray-200);border-radius:8px;
+               font-size:15px;font-family:inherit;box-sizing:border-box;">
+    </div>
+    <div style="text-align:center;margin-bottom:14px;">
+      ${confirmedBy
+        ? `<span class="signed-badge">✅ ${confirmedBy.name} 已確認　${confirmedBy.time||''}</span>`
+        : isSupervisor(currentUser?.id)
+          ? `<button onclick="confirmAbnormal('${areaKey}',${day},'${session}');renderAbnormalModalBody();"
+               style="padding:8px 24px;background:var(--teal);color:white;border:none;
+                      border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;">
+               組長確認
+             </button>`
+          : `<span style="font-size:12px;color:var(--gray-400);">待組長確認</span>`
+      }
+    </div>
+    <button onclick="saveAbnormalModal()"
+      style="width:100%;padding:13px;background:var(--teal);color:white;border:none;
+             border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit;">
+      ✔ 儲存並關閉
+    </button>
+  `;
+}
+
+function saveAbnormalModal() {
+  if(!abnormalModalCtx) return;
+  const { areaKey, day, session } = abnormalModalCtx;
+  const reason = document.getElementById('modal-abn-reason').value.trim();
+  const resolved = document.getElementById('modal-abn-resolved').value;
+  const recovery = document.getElementById('modal-abn-recovery').value.trim();
+  const handling = document.getElementById('modal-abn-handling').value.trim();
+
+  if(!reason) { showToast('請先填寫異常原因', 'warn'); return; }
+  if(!resolved) { showToast('請選擇是否解除', 'warn'); return; }
+  if(!handling) { showToast('請填寫處理方式', 'warn'); return; }
+  if(!recovery) { showToast('請填寫回復溫(溼)度', 'warn'); return; }
+
+  setEntryByArea(areaKey, day, session, 'reason', reason);
+  setAbnormalField(areaKey, day, session, 'resolved', resolved);
+  setAbnormalField(areaKey, day, session, 'handling', handling);
+  setAbnormalField(areaKey, day, session, 'recovery', recovery);
+
+  showToast('✅ 異常處理紀錄已儲存', 'success');
+  closeAbnormalModal();
 }
 
 function checkMaxTempDept(deptKey) {
