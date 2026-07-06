@@ -2252,14 +2252,14 @@ function renderAbnormalModalBody() {
       <label style="display:block;font-size:12px;font-weight:700;color:var(--gray-700);margin-bottom:6px;">異常原因</label>
       <input type="text" id="modal-abn-reason" value="${e.reason||''}" placeholder="請填寫異常原因"
         style="width:100%;padding:11px 12px;border:1.5px solid var(--gray-200);border-radius:8px;
-               font-size:15px;font-family:inherit;box-sizing:border-box;">
+               font-size:16px;font-family:inherit;box-sizing:border-box;">
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;">
       <div>
         <label style="display:block;font-size:12px;font-weight:700;color:var(--gray-700);margin-bottom:6px;">是否解除</label>
         <select id="modal-abn-resolved"
           style="width:100%;padding:11px 8px;border:1.5px solid var(--gray-200);border-radius:8px;
-                 font-size:15px;font-family:inherit;font-weight:700;box-sizing:border-box;">
+                 font-size:16px;font-family:inherit;font-weight:700;box-sizing:border-box;">
           <option value="" ${resolved===''?'selected':''}>— 請選擇 —</option>
           <option value="Y" ${resolved==='Y'?'selected':''}>Y（是）</option>
           <option value="N" ${resolved==='N'?'selected':''}>N（否）</option>
@@ -2267,16 +2267,19 @@ function renderAbnormalModalBody() {
       </div>
       <div>
         <label style="display:block;font-size:12px;font-weight:700;color:var(--gray-700);margin-bottom:6px;">回復溫(溼)度</label>
-        <input type="text" id="modal-abn-recovery" value="${recovery}" placeholder="例如 24.5"
+        <input type="tel" id="modal-abn-recovery" inputmode="decimal" pattern="[0-9]*[.]?[0-9]*"
+          autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
+          value="${recovery}" placeholder="例如 24.5"
+          oninput="filterDecimalInput(this)"
           style="width:100%;padding:11px 8px;border:1.5px solid var(--gray-200);border-radius:8px;
-                 font-size:15px;font-family:inherit;text-align:center;box-sizing:border-box;">
+                 font-size:16px;font-family:inherit;text-align:center;box-sizing:border-box;">
       </div>
     </div>
     <div style="margin-bottom:16px;">
       <label style="display:block;font-size:12px;font-weight:700;color:var(--gray-700);margin-bottom:6px;">處理方式</label>
       <input type="text" id="modal-abn-handling" value="${handling}" placeholder="請填寫實際處理方式"
         style="width:100%;padding:11px 12px;border:1.5px solid var(--gray-200);border-radius:8px;
-               font-size:15px;font-family:inherit;box-sizing:border-box;">
+               font-size:16px;font-family:inherit;box-sizing:border-box;">
     </div>
     <div style="text-align:center;margin-bottom:14px;">
       ${confirmedBy
@@ -2386,14 +2389,6 @@ function submitAllDepts() {
   showToast(`登記確認完成（${session==='AM'?'上午':'下午'} ${timeStr}）`, 'success');
   renderStats();
   renderAbnormal();
-
-  if(hasAbnormal) {
-    setTimeout(() => {
-      alert('⚠ 務必填寫處理紀錄！\n請至下方「異常處理記錄」填寫處理方式。');
-      const abnSec = document.querySelector('.abnormal-section');
-      if(abnSec) abnSec.scrollIntoView({ behavior:'smooth', block:'start' });
-    }, 500);
-  }
 }
 
 function autoNextField(el, nextId, maxLen) {
@@ -2519,15 +2514,6 @@ function submitSession() {
   }
 
   showToast(`登記確認完成（${currentSession==='AM'?'上午':'下午'} ${timeStr}）`, 'success');
-
-  // 若有異常，提醒填寫處理紀錄並捲動到該區塊
-  if(tempWarn || maxTempWarn || humWarn) {
-    setTimeout(() => {
-      alert('⚠ 務必填寫處理紀錄！\n請至下方「異常處理記錄」填寫處理方式。');
-      const abnSec = document.querySelector('.abnormal-section');
-      if(abnSec) abnSec.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }, 500);
-  }
 }
 
 function checkMaxTemp() {
