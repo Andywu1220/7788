@@ -2,7 +2,7 @@
 <html lang="zh-TW">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, viewport-fit=cover">
 <meta name="format-detection" content="telephone=no">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -367,19 +367,19 @@
   }
   .today-fields {
     display: grid; grid-template-columns: repeat(3, 1fr);
-    gap: 8px; margin-bottom: 10px;
+    gap: 6px; margin-bottom: 8px;
   }
   .field-group { display: flex; flex-direction: column; gap: 6px; }
   .field-group label {
-    font-size: 14px; font-weight: 700; color: var(--gray-500);
+    font-size: 11px; font-weight: 700; color: var(--gray-500);
     text-transform: uppercase; letter-spacing: .3px;
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     text-align: center;
   }
   .field-group label span { color: var(--red); font-weight: 800; }
   .field-group input {
-    padding: 16px 4px; border: 1.5px solid var(--gray-200);
-    border-radius: 12px; font-size: 26px; text-align: center;
+    padding: 10px 4px; border: 1.5px solid var(--gray-200);
+    border-radius: 10px; font-size: 20px; text-align: center;
     background: var(--gray-50); font-family: inherit;
     font-weight: 700;
     transition: all .2s; width: 100%;
@@ -505,6 +505,34 @@
     padding: 14px 20px; display: flex; align-items: center; gap: 8px;
   }
   .abnormal-header h3 { font-size: 15px; font-weight: 700; color: #92400e; }
+
+  /* 異常處理記錄：桌機用表格，手機改用卡片，避免要左右滑動才能填寫 */
+  .abnormal-cards-mobile { display: none; padding: 10px; }
+  @media (max-width: 700px) {
+    .abnormal-table-desktop { display: none; }
+    .abnormal-cards-mobile { display: block; }
+  }
+  .abn-card {
+    background: white; border: 1.5px solid var(--gray-200); border-radius: 12px;
+    padding: 12px 14px; margin-bottom: 10px;
+  }
+  .abn-card-head {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 8px; flex-wrap: wrap; gap: 6px;
+  }
+  .abn-card-date { font-weight: 800; font-size: 14px; color: var(--gray-900); }
+  .abn-card-val { color: var(--red); font-weight: 700; font-size: 13px; }
+  .abn-card-row { margin-bottom: 8px; }
+  .abn-card-row label {
+    display: block; font-size: 11px; font-weight: 700; color: var(--gray-500);
+    margin-bottom: 4px; text-transform: uppercase; letter-spacing: .3px;
+  }
+  .abn-card-row select, .abn-card-row input {
+    width: 100%; padding: 10px 12px; border-radius: 8px; font-size: 15px;
+    font-family: inherit; box-sizing: border-box;
+  }
+  .abn-card-reason { font-size: 13px; color: var(--gray-700); margin-bottom: 8px; }
+  .abn-card-signed { font-size: 12px; color: var(--gray-500); margin-bottom: 8px; }
   .warning-chip {
     background: #fef3c7; color: #92400e;
     border-radius: 12px; padding: 2px 10px; font-size: 11px; font-weight: 700;
@@ -795,7 +823,7 @@
         <h3>⚠ 異常處理記錄</h3>
         <span class="warning-chip" id="abnormalCount">0 筆異常</span>
       </div>
-      <div class="table-wrap">
+      <div class="table-wrap abnormal-table-desktop">
         <table>
           <thead>
             <tr>
@@ -813,13 +841,14 @@
           <tbody id="abnormalTbody"></tbody>
         </table>
       </div>
+      <div id="abnormalCardsWrap" class="abnormal-cards-mobile"></div>
     </div>
 
   </main>
 
   <!-- 確認按鈕：固定在底部 -->
   <div id="fixedSubmitBar" style="display:none;position:fixed;bottom:0;left:0;right:0;z-index:200;
-    background:white;padding:10px 16px 20px;box-shadow:0 -4px 12px rgba(0,0,0,0.1);border-top:1px solid #e5e7eb;">
+    background:white;padding:10px 16px calc(20px + env(safe-area-inset-bottom));box-shadow:0 -4px 12px rgba(0,0,0,0.1);border-top:1px solid #e5e7eb;">
     <div class="save-status" id="saveStatus" style="margin-bottom:6px;font-size:11px;text-align:center;">資料即時儲存</div>
     <button class="submit-btn" onclick="submitAllDepts()"
       style="width:100%;padding:11px;font-size:14px;border-radius:10px;-webkit-tap-highlight-color:transparent;touch-action:manipulation;">
@@ -1874,12 +1903,12 @@ function renderTodayView() {
       ${outOfRange ? `<div style="background:#fffbeb;border:1.5px solid #fcd34d;border-radius:8px;padding:6px 10px;font-size:11px;color:#92400e;font-weight:600;margin-bottom:6px;">⚠ 現在${rangeMsg}，如為補登請繼續填寫</div>` : ''}
       ${isMakeup ? `<div style="background:#eff6ff;border:1.5px solid #bfdbfe;border-radius:8px;padding:6px 10px;font-size:11px;color:#1e40af;font-weight:600;margin-bottom:6px;">📝 補登：${currentMonth}-${String(d).padStart(2,'0')}</div>` : ''}
       ${deptData.map((dept,i) => `
-      <div style="background:white;border-radius:12px;padding:12px 14px;margin-bottom:8px;box-shadow:0 2px 8px rgba(0,0,0,0.08);border-left:4px solid ${i===0?'#1a7f6e':i===1?'#1d4ed8':'#b45309'};">
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;padding:6px 10px;border-radius:8px;background:${i===0?'#e8f5f2':i===1?'#eff6ff':'#fef9f0'};">
-          <span style="font-size:13px;">${i===0?'🏥':i===1?'🛏':'📦'}</span>
-          <span style="font-size:12px;font-weight:800;color:${i===0?'#1a7f6e':i===1?'#1d4ed8':'#b45309'};">${dept.label}</span>
+      <div style="background:white;border-radius:10px;padding:8px 10px;margin-bottom:6px;box-shadow:0 2px 8px rgba(0,0,0,0.08);border-left:4px solid ${i===0?'#1a7f6e':i===1?'#1d4ed8':'#b45309'};">
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:5px;padding:4px 8px;border-radius:6px;background:${i===0?'#e8f5f2':i===1?'#eff6ff':'#fef9f0'};">
+          <span style="font-size:12px;">${i===0?'🏥':i===1?'🛏':'📦'}</span>
+          <span style="font-size:11px;font-weight:800;color:${i===0?'#1a7f6e':i===1?'#1d4ed8':'#b45309'};">${dept.label}</span>
         </div>
-        <div class="today-fields" style="margin-bottom:6px;">
+        <div class="today-fields" style="margin-bottom:4px;">
           <div class="field-group">
             <label>溫度 (℃) <span>≦25</span></label>
             <input type="tel" id="tf-temp-${dept.key}" inputmode="decimal" pattern="[0-9]*[.]?[0-9]*"
@@ -1908,7 +1937,7 @@ function renderTodayView() {
         <div id="maxwarn-${dept.key}" style="display:none;background:#fef2f2;border:1.5px solid #fecaca;border-radius:8px;padding:6px 10px;font-size:11px;color:var(--red);font-weight:600;margin-bottom:6px;">⛔ 最高溫度不可小於溫度</div>
         <div id="reason-wrap-${dept.key}" style="display:${(dept.tempWarn||dept.maxWarn||dept.humWarn)?'block':'none'};margin-bottom:4px;">
           <label style="font-size:11px;color:var(--red);font-weight:700;">⚠ 異常原因（必填）</label>
-          <div style="display:flex;flex-wrap:wrap;gap:3px;margin:3px 0;">
+          <div id="preset-reasons-${dept.key}" style="display:${dept.reason?'none':'flex'};flex-wrap:wrap;gap:3px;margin:3px 0;">
             ${['空調設備故障','空調排程未啟動','人員進出頻繁，冷氣流失','連日降雨，外部溼度偏高'].map(t=>
               `<button type="button" onclick="setReasonByArea('${dept.areaKey}',${d},'${currentSession}','${t}')"
                 style="padding:2px 7px;border:1px solid var(--teal);border-radius:20px;background:white;color:var(--teal);font-size:10px;cursor:pointer;font-family:inherit;white-space:nowrap;">${t}</button>`
@@ -1916,6 +1945,7 @@ function renderTodayView() {
           </div>
           <input type="text" id="tf-reason-${dept.key}" placeholder="請填寫異常原因及處理方式"
             value="${dept.reason}"
+            oninput="hidePresetReasons('${dept.key}')"
             onchange="setEntryByArea('${dept.areaKey}',${d},'${currentSession}','reason',this.value)">
         </div>
         ${dept.signedBy ? `<div style="font-size:11px;color:#16a34a;font-weight:600;">✅ 最後登記：${dept.signedBy} 於 ${dept.time}</div>` : ''}
@@ -2142,7 +2172,12 @@ function setReasonByArea(areaKey, day, session, text) {
   const deptKey = areaKey.split('_').slice(1).join('_');
   const input = document.getElementById('tf-reason-' + deptKey);
   if(input) input.value = text;
+  hidePresetReasons(deptKey);
   setEntryByArea(areaKey, day, session, 'reason', text);
+}
+function hidePresetReasons(deptKey) {
+  const wrap = document.getElementById('preset-reasons-' + deptKey);
+  if(wrap) wrap.style.display = 'none';
 }
 
 function checkMaxTempDept(deptKey) {
@@ -2472,8 +2507,10 @@ function renderAbnormal() {
 
   document.getElementById('abnormalCount').textContent = rows.length + ' 筆異常';
   const tbody = document.getElementById('abnormalTbody');
+  const cardsWrap = document.getElementById('abnormalCardsWrap');
   if(!rows.length) {
     tbody.innerHTML = '<tr><td colspan="8" style="padding:20px;color:var(--gray-500);text-align:center">本月無異常記錄 ✅</td></tr>';
+    if(cardsWrap) cardsWrap.innerHTML = '<div style="padding:20px;color:var(--gray-500);text-align:center">本月無異常記錄 ✅</div>';
     renderSupervisor();
     return;
   }
@@ -2537,6 +2574,61 @@ function renderAbnormal() {
       </td>
     </tr>`;
   }).join('');
+
+  if(cardsWrap) {
+    cardsWrap.innerHTML = rows.map(r => {
+      const resolved = r.resolved || '';
+      const handling = r.handling || '';
+      const recovery = r.recovery || '';
+      const confirmedBy = r.confirmedBy || '';
+      const resolvedColor = resolved === 'Y' ? 'var(--green)' : resolved === 'N' ? 'var(--red)' : 'var(--gray-400)';
+      const dateLabel = `${currentMonth.slice(5)}/${String(r.day).padStart(2,'0')} ${r.session}`;
+
+      return `<div class="abn-card">
+        <div class="abn-card-head">
+          <span class="abn-card-date">📅 ${dateLabel}　<span style="font-weight:600;color:var(--gray-500);font-size:12px;">${r.deptLabel||''}</span></span>
+          <span class="abn-card-val">⚠ ${r.abnormal}</span>
+        </div>
+        <div class="abn-card-reason">原因說明：${r.reason ? r.reason : '<span style="color:var(--red)">⚠ 尚未填寫</span>'}</div>
+        <div class="abn-card-signed">登記人員：${r.signed}</div>
+        <div class="abn-card-row">
+          <label>是否解除</label>
+          <select onchange="setAbnormalField('${r.areaKey||currentArea}',${r.day},'${r.sessionKey}','resolved',this.value)"
+            style="border:1.5px solid ${resolved?'var(--gray-200)':'var(--red)'};font-weight:700;color:${resolvedColor};background:${resolved?'white':'#fff5f5'};">
+            <option value="" ${resolved===''?'selected':''}>— 必填 —</option>
+            <option value="Y" ${resolved==='Y'?'selected':''}>Y（是）</option>
+            <option value="N" ${resolved==='N'?'selected':''}>N（否）</option>
+          </select>
+        </div>
+        <div class="abn-card-row">
+          <label>處理方式</label>
+          <input type="text" value="${handling}" placeholder="必填"
+            onchange="setAbnormalField('${r.areaKey||currentArea}',${r.day},'${r.sessionKey}','handling',this.value)"
+            style="border:1.5px solid ${handling?'var(--gray-200)':'var(--red)'};background:${handling?'white':'#fff5f5'};">
+        </div>
+        <div class="abn-card-row">
+          <label>回復溫(溼)度</label>
+          <input type="text" value="${recovery}" placeholder="必填"
+            onchange="setAbnormalField('${r.areaKey||currentArea}',${r.day},'${r.sessionKey}','recovery',this.value)"
+            style="border:1.5px solid ${recovery?'var(--gray-200)':'var(--red)'};background:${recovery?'white':'#fff5f5'};">
+        </div>
+        <div style="text-align:center;margin-top:6px;">
+          ${confirmedBy
+            ? `<span class="signed-badge">✅ ${confirmedBy.name}　${confirmedBy.time||''}</span>`
+            : isSupervisor(currentUser?.id)
+              ? `<button onclick="confirmAbnormal('${r.areaKey||currentArea}',${r.day},'${r.sessionKey}')"
+                   style="padding:8px 20px;background:var(--teal);color:white;border:none;
+                          border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;
+                          font-family:inherit;">
+                   確認
+                 </button>`
+              : `<span style="font-size:12px;color:var(--gray-400);">待組長確認</span>`
+          }
+        </div>
+      </div>`;
+    }).join('');
+  }
+
   renderSupervisor();
 }
 
