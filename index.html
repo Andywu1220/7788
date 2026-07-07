@@ -371,15 +371,15 @@
   }
   .field-group { display: flex; flex-direction: column; gap: 6px; }
   .field-group label {
-    font-size: 11px; font-weight: 700; color: var(--gray-500);
+    font-size: 13px; font-weight: 700; color: var(--gray-500);
     text-transform: uppercase; letter-spacing: .3px;
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     text-align: center;
   }
   .field-group label span { color: var(--red); font-weight: 800; }
   .field-group input {
-    padding: 10px 4px; border: 1.5px solid var(--gray-200);
-    border-radius: 10px; font-size: 20px; text-align: center;
+    padding: 16px 4px; border: 1.5px solid var(--gray-200);
+    border-radius: 12px; font-size: 26px; text-align: center;
     background: var(--gray-50); font-family: inherit;
     font-weight: 700;
     transition: all .2s; width: 100%;
@@ -1340,7 +1340,16 @@ function logout() {
   document.getElementById('loginWrap').style.display='flex';
   document.getElementById('appPage').classList.remove('active');
   document.getElementById('headerUser').style.display='none';
+  // 完全清除上一位使用者殘留的資訊，避免看得到員編／姓名／登入院區
+  document.getElementById('headerSub').textContent = '國立臺灣大學醫學院附設醫院雲林分院－藥劑部';
+  const idInput = document.getElementById('loginIdInput');
+  if(idInput) idInput.value = '';
+  const nameInput = document.getElementById('loginName');
+  if(nameInput) nameInput.value = '';
+  const loginErr = document.getElementById('loginError');
+  if(loginErr) loginErr.style.display = 'none';
   showToast('已登出系統', 'success');
+  if(idInput) idInput.focus();
 }
 
 function showApp() {
@@ -1741,6 +1750,15 @@ function setSession(s, btn) {
 function onDatePickerChange(val) {
   if(!val) return;
   // val 格式是 YYYY-MM-DD
+  const now = new Date();
+  const todayYMD = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0') + '-' + String(now.getDate()).padStart(2,'0');
+  if(val > todayYMD) {
+    // 防呆：部分手機瀏覽器的原生日期選擇器不一定會確實套用 max 限制，這裡再次擋下未來日期
+    showToast('⛔ 未來日期無法選擇，已為您重設為今天', 'error');
+    const mp = document.getElementById('monthPicker');
+    if(mp) mp.value = todayYMD;
+    val = todayYMD;
+  }
   const ym = val.slice(0, 7);   // 取 YYYY-MM
   const day = parseInt(val.slice(8, 10)); // 取 DD
   currentMonth = ym;
@@ -2013,7 +2031,7 @@ function renderTodayView() {
                 style="padding:2px 7px;border:1px solid var(--teal);border-radius:20px;background:white;color:var(--teal);font-size:10px;cursor:pointer;font-family:inherit;white-space:nowrap;">${t}</button>`
             ).join('')}
           </div>
-          <input type="text" id="tf-reason-${dept.key}" placeholder="請填寫異常原因及處理方式" ${locked?'disabled':''}
+          <input type="text" id="tf-reason-${dept.key}" placeholder="請填寫異常原因" ${locked?'disabled':''}
             value="${dept.reason}"
             oninput="hidePresetReasons('${dept.key}')"
             onchange="setEntryByArea('${dept.areaKey}',${d},'${currentSession}','reason',this.value)">
@@ -2223,8 +2241,11 @@ function renderMonthView() {
   }).join('');
 
   // 把所有部門表格放入 mainTableWrap
-  const tbody = document.getElementById('logTbody');
-  if(tbody) tbody.parentElement.parentElement.innerHTML = allDeptHtml;
+  // 注意：不能再用 document.getElementById('logTbody') 找目標容器 —— 因為每個部門表格自己的
+  // <tbody> 沒有 id="logTbody"，第一次渲染後原本的 logTbody 元素就會被整個取代掉，
+  // 導致第二次以後再渲染時 getElementById('logTbody') 會抓不到東西、畫面就卡住不再更新。
+  const mainWrap = document.getElementById('mainTableWrap');
+  if(mainWrap) mainWrap.innerHTML = allDeptHtml;
 
   currentArea = savedArea;
   loadData(currentMonth);
@@ -2395,6 +2416,7 @@ function saveAbnormalModal() {
   showToast('✅ 異常處理紀錄已儲存', 'success');
   closeAbnormalModal();
 }
+
 
 function checkMaxTempDept(deptKey) {
   const t = parseFloat(document.getElementById('tf-temp-'+deptKey)?.value);
