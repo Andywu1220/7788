@@ -1271,7 +1271,10 @@ window.onload = function() {
   // Set month to today
   const now = new Date();
   const ym = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0');
-  document.getElementById('monthPicker').value = ym;
+  const todayFull = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0') + '-' + String(now.getDate()).padStart(2,'0');
+  const mp = document.getElementById('monthPicker');
+  mp.value = ym;
+  mp.max = todayFull; // 未來日期不可選
   currentMonth = ym;
 
   // Check session
@@ -1305,6 +1308,18 @@ function onIdInput(val) {
 }
 
 // ══════════ LOGIN / LOGOUT ══════════
+function resetViewState() {
+  // 每次登入都是全新開始，不沿用上一位使用者瀏覽到的頁面/日期/月份
+  const now = new Date();
+  currentMonth = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0');
+  currentDay = now.getDate();
+  currentSession = 'AM';
+  currentView = 'today';
+  logData = {};
+  checkerData = {};
+  supervisorData = {};
+}
+
 function doLogin() {
   const raw = document.getElementById('loginIdInput').value.trim();
   const id = ('Y' + raw).toUpperCase();
@@ -1313,6 +1328,7 @@ function doLogin() {
   if(!s) { err.style.display='block'; document.getElementById('loginIdInput').focus(); return; }
   err.style.display='none';
   currentUser = s;
+  resetViewState();
   try { localStorage.setItem('templog_session', JSON.stringify(s)); } catch(e) {}
   showApp();
 }
@@ -1320,6 +1336,7 @@ function doLogin() {
 function logout() {
   try { localStorage.removeItem('templog_session'); } catch(e) {}
   currentUser = null;
+  resetViewState();
   document.getElementById('loginWrap').style.display='flex';
   document.getElementById('appPage').classList.remove('active');
   document.getElementById('headerUser').style.display='none';
@@ -1327,6 +1344,25 @@ function logout() {
 }
 
 function showApp() {
+  // 每次登入都重新開始：預設回到「今日登記」畫面、上午時段，不沿用前一位使用者留下的畫面狀態
+  currentView = 'today';
+  currentSession = 'AM';
+  document.querySelectorAll('.view-toggle-btn').forEach(b => b.classList.remove('active'));
+  const btnTodayEl = document.getElementById('btnToday');
+  if(btnTodayEl) btnTodayEl.classList.add('active');
+  const sessAMEl = document.getElementById('sessAM');
+  const sessPMEl = document.getElementById('sessPM');
+  if(sessAMEl) sessAMEl.className = 'active';
+  if(sessPMEl) sessPMEl.className = '';
+  const exportBtnEl = document.getElementById('exportBtn');
+  if(exportBtnEl) exportBtnEl.style.display = 'none';
+  const statsRowEl = document.getElementById('statsRow');
+  if(statsRowEl) statsRowEl.style.display = 'none';
+  const supervisorSectionEl = document.getElementById('supervisorSection');
+  if(supervisorSectionEl) supervisorSectionEl.style.display = 'none';
+  const mainWrapEl = document.getElementById('mainTableWrap');
+  if(mainWrapEl) mainWrapEl.style.overflowX = 'visible';
+
   document.getElementById('loginWrap').style.display='none';
   document.getElementById('appPage').classList.add('active');
   document.getElementById('headerUser').style.display='flex';
@@ -1334,12 +1370,14 @@ function showApp() {
   document.getElementById('headerName').textContent = currentUser.name + ' (' + currentUser.id + ')';
   document.getElementById('headerSub').textContent = '國立臺灣大學醫學院附設醫院雲林分院－藥劑部【斗六 門診藥局】';
 
-  // ── 示範資料版本檢查：每次調整示範資料邏輯（人員／組長／週檢核者設定等）都會提高版本號，
-  //    只要偵測到瀏覽器裡的版本號不是最新的，就整批清除舊示範資料，避免殘留舊資料造成顯示不一致 ──
-  const DEMO_DATA_VERSION = 'v5-staff-roster-fix2';
+  // ── 示範資料版本檢查：只有在版本號變動時才會重新產生示範資料。
+  //    版本相同時完全不會動到資料，確保藥師實際登記/修改過的資料不會被示範資料覆蓋掉 ──
+  const DEMO_DATA_VERSION = 'v6-persist-real-data';
+  let needsDemoRegen = false;
   try {
     const storedVersion = localStorage.getItem('templog_demo_version');
-    if(storedVersion !== DEMO_DATA_VERSION) {
+    needsDemoRegen = (storedVersion !== DEMO_DATA_VERSION);
+    if(needsDemoRegen) {
       const keysToRemove = [];
       for(let i=0; i<localStorage.length; i++) {
         const k = localStorage.key(i);
@@ -1354,7 +1392,7 @@ function showApp() {
 
   // submit-row 已整合進 todayCard，不需額外控制
 
-
+  if(needsDemoRegen) {
   function buildDemo(seed, days, campus) {
     days = days || 30;
     const pool = STAFF.filter(s => s.campus === campus).map(s => s.name);
@@ -1663,9 +1701,10 @@ function showApp() {
   areas07.forEach(({key, ck, sv, campus, build}) => {
     try { localStorage.removeItem(key); localStorage.removeItem(ck); localStorage.removeItem(sv); } catch(e){}
     try { localStorage.setItem(key, JSON.stringify(build())); } catch(e){}
-    try { localStorage.setItem(ck, JSON.stringify({1:chkBy7[campus],2:chkBy7[campus],3:chkBy7[campus],4:chkBy7[campus],5:chkBy7[campus]})); } catch(e){}
+    try { localStorage.setItem(ck, JSON.stringify({})); } catch(e){} // 7月刻意不預先簽核，留給實際測試用
     try { localStorage.setItem(sv, JSON.stringify(svBy7[campus])); } catch(e){}
   });
+  } // end if(needsDemoRegen)
 
   // 設定 datePicker 預設為今天
   const fixedBarInit = document.getElementById('fixedSubmitBar');
@@ -1675,7 +1714,7 @@ function showApp() {
     String(today.getMonth()+1).padStart(2,'0') + '-' +
     String(today.getDate()).padStart(2,'0');
   const dp = document.getElementById('monthPicker');
-  if(dp) dp.value = todayStr;
+  if(dp) { dp.value = todayStr; dp.max = todayStr; }
 
   // 依登入人員院區自動設定，並鎖定不讓更改
   const userCampus = currentUser.campus || 'douliu';
@@ -1832,13 +1871,19 @@ function renderTodayView() {
   const humWarn = e.humid !== '' && parseFloat(e.humid) >= 66;
   const needReason = tempWarn || maxTempWarn || humWarn;
 
-  // Build day options
+  // Build day options（未來日期不列入選項）
+  const maxSelectableDay = isCurrentMonth ? todayRealDay : totalDays;
   let dayOptions = '';
-  for(let i = 1; i <= totalDays; i++) {
+  for(let i = 1; i <= maxSelectableDay; i++) {
     const ymd = `${currentMonth}-${String(i).padStart(2,'0')}`;
     const isToday = isCurrentMonth && i === todayRealDay;
     dayOptions += `<option value="${i}" ${i === d ? 'selected' : ''}>${String(i).padStart(2,'0')} 日${isToday ? ' （今日）' : ''}</option>`;
   }
+
+  // 防呆：若選到的日期仍超過今天（例如月份切換到未來月份），一律鎖定不可編輯
+  const nowYMD = nowYM + '-' + String(todayRealDay).padStart(2,'0');
+  const selectedYMD = currentMonth + '-' + String(d).padStart(2,'0');
+  const isFutureDay = selectedYMD > nowYMD;
 
   // Time-range warning for selected day
   const nowTotal = now.getHours() * 60 + now.getMinutes();
@@ -1889,12 +1934,14 @@ function renderTodayView() {
     const depts = CAMPUS_DEPTS[campus] || [];
 
     // 為每個部門取得資料
+    const weekNum = Math.ceil(d / 7);
     const deptData = depts.map(dept => {
       const areaKey = campus + '_' + dept.key;
       const savedArea = currentArea;
       currentArea = areaKey;
       loadData(currentMonth); // 重新載入該部門自己的資料，避免讀到記憶體中殘留的其他部門資料
       const entry = getEntry(d, currentSession);
+      const checkerRec = getChecker(weekNum); // 該部門本週是否已完成週檢核
       currentArea = savedArea;
       loadData(currentMonth); // 還原成目前實際檢視部門的資料
       const fT = v => (v!==''&&v!==undefined&&v!==null&&!isNaN(parseFloat(v))) ? parseFloat(v).toFixed(1) : '';
@@ -1907,7 +1954,8 @@ function renderTodayView() {
         humWarn: entry.humid!==''&&parseFloat(entry.humid)>=66,
         signedBy: entry.signedBy||'', time: entry.time||'',
         resolved: entry.resolved||'', handling: entry.handling||'', recovery: entry.recovery||'',
-        confirmedBy: entry.confirmedBy||null
+        confirmedBy: entry.confirmedBy||null,
+        weekLocked: !!checkerRec, weekCheckerName: checkerRec ? checkerRec.name : ''
       };
     });
 
@@ -1916,17 +1964,25 @@ function renderTodayView() {
     sf.innerHTML = `
       ${outOfRange ? `<div style="background:#fffbeb;border:1.5px solid #fcd34d;border-radius:8px;padding:6px 10px;font-size:11px;color:#92400e;font-weight:600;margin-bottom:6px;">⚠ 現在${rangeMsg}，如為補登請繼續填寫</div>` : ''}
       ${isMakeup ? `<div style="background:#eff6ff;border:1.5px solid #bfdbfe;border-radius:8px;padding:6px 10px;font-size:11px;color:#1e40af;font-weight:600;margin-bottom:6px;">📝 補登：${currentMonth}-${String(d).padStart(2,'0')}</div>` : ''}
-      ${deptData.map((dept,i) => `
-      <div style="background:white;border-radius:10px;padding:8px 10px;margin-bottom:6px;box-shadow:0 2px 8px rgba(0,0,0,0.08);border-left:4px solid ${i===0?'#1a7f6e':i===1?'#1d4ed8':'#b45309'};">
+      ${deptData.map((dept,i) => {
+        const locked = isFutureDay || dept.weekLocked;
+        const lockBanner = isFutureDay
+          ? `<div style="background:#f3f4f6;border:1.5px solid #d1d5db;border-radius:6px;padding:5px 8px;font-size:10px;color:var(--gray-500);font-weight:600;margin-bottom:5px;">🔒 未來日期不可登記</div>`
+          : dept.weekLocked
+            ? `<div style="background:#f3f4f6;border:1.5px solid #d1d5db;border-radius:6px;padding:5px 8px;font-size:10px;color:var(--gray-500);font-weight:600;margin-bottom:5px;">🔒 本週已由 ${dept.weekCheckerName} 完成核定，資料已鎖定無法修改</div>`
+            : '';
+        return `
+      <div style="background:white;border-radius:10px;padding:8px 10px;margin-bottom:6px;box-shadow:0 2px 8px rgba(0,0,0,0.08);border-left:4px solid ${i===0?'#1a7f6e':i===1?'#1d4ed8':'#b45309'};${locked?'opacity:.75;':''}">
         <div style="display:flex;align-items:center;gap:6px;margin-bottom:5px;padding:4px 8px;border-radius:6px;background:${i===0?'#e8f5f2':i===1?'#eff6ff':'#fef9f0'};">
           <span style="font-size:12px;">${i===0?'🏥':i===1?'🛏':'📦'}</span>
           <span style="font-size:11px;font-weight:800;color:${i===0?'#1a7f6e':i===1?'#1d4ed8':'#b45309'};">${dept.label}</span>
         </div>
+        ${lockBanner}
         <div class="today-fields" style="margin-bottom:4px;">
           <div class="field-group">
             <label>溫度 (℃) <span>≦25</span></label>
             <input type="tel" id="tf-temp-${dept.key}" inputmode="decimal" pattern="[0-9]*[.]?[0-9]*"
-              autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
+              autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" ${locked?'disabled':''}
               placeholder="—" value="${dept.temp}" class="${dept.tempWarn?'warn':''}"
               oninput="filterDecimalInput(this);updateWarnClass(this,25);checkMaxTempDept('${dept.key}');refreshReasonWrap('${dept.key}');autoNextField(this,'tf-maxtemp-${dept.key}',4)"
               onblur="fmtTempInput(this);setEntryByArea('${dept.areaKey}',${d},'${currentSession}','temp',this.value)">
@@ -1934,7 +1990,7 @@ function renderTodayView() {
           <div class="field-group">
             <label>最高溫度 (℃) <span>≦25</span></label>
             <input type="tel" id="tf-maxtemp-${dept.key}" inputmode="decimal" pattern="[0-9]*[.]?[0-9]*"
-              autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
+              autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" ${locked?'disabled':''}
               placeholder="—" value="${dept.maxTemp}" class="${dept.maxWarn?'warn':''}"
               oninput="filterDecimalInput(this);updateWarnClass(this,25);checkMaxTempDept('${dept.key}');refreshReasonWrap('${dept.key}');autoNextField(this,'tf-humid-${dept.key}',4)"
               onblur="fmtTempInput(this);setEntryByArea('${dept.areaKey}',${d},'${currentSession}','maxTemp',this.value)">
@@ -1942,7 +1998,7 @@ function renderTodayView() {
           <div class="field-group">
             <label>溼度 (%) <span>≦65</span></label>
             <input type="tel" id="tf-humid-${dept.key}" inputmode="numeric" pattern="[0-9]*"
-              autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
+              autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" ${locked?'disabled':''}
               placeholder="—" value="${dept.humid}" class="${dept.humWarn?'warn':''}"
               oninput="filterIntInput(this);updateWarnClass(this,65);refreshReasonWrap('${dept.key}');autoNextField(this,${i<deptData.length-1?`'tf-temp-${deptData[i+1]?.key}'`:'null'},3)"
               onblur="fmtIntInput(this);setEntryByArea('${dept.areaKey}',${d},'${currentSession}','humid',this.value)">
@@ -1951,13 +2007,13 @@ function renderTodayView() {
         <div id="maxwarn-${dept.key}" style="display:none;background:#fef2f2;border:1.5px solid #fecaca;border-radius:8px;padding:6px 10px;font-size:11px;color:var(--red);font-weight:600;margin-bottom:6px;">⛔ 最高溫度不可小於溫度</div>
         <div id="reason-wrap-${dept.key}" style="display:${(dept.tempWarn||dept.maxWarn||dept.humWarn)?'block':'none'};margin-bottom:4px;">
           <label style="font-size:11px;color:var(--red);font-weight:700;">⚠ 異常原因（必填）</label>
-          <div id="preset-reasons-${dept.key}" style="display:${dept.reason?'none':'flex'};flex-wrap:wrap;gap:3px;margin:3px 0;">
+          <div id="preset-reasons-${dept.key}" style="display:${(dept.reason||locked)?'none':'flex'};flex-wrap:wrap;gap:3px;margin:3px 0;">
             ${['空調設備故障','空調排程未啟動','人員進出頻繁，冷氣流失','連日降雨，外部溼度偏高'].map(t=>
-              `<button type="button" onclick="setReasonByArea('${dept.areaKey}',${d},'${currentSession}','${t}')"
+              `<button type="button" ${locked?'disabled':''} onclick="setReasonByArea('${dept.areaKey}',${d},'${currentSession}','${t}')"
                 style="padding:2px 7px;border:1px solid var(--teal);border-radius:20px;background:white;color:var(--teal);font-size:10px;cursor:pointer;font-family:inherit;white-space:nowrap;">${t}</button>`
             ).join('')}
           </div>
-          <input type="text" id="tf-reason-${dept.key}" placeholder="請填寫異常原因及處理方式"
+          <input type="text" id="tf-reason-${dept.key}" placeholder="請填寫異常原因及處理方式" ${locked?'disabled':''}
             value="${dept.reason}"
             oninput="hidePresetReasons('${dept.key}')"
             onchange="setEntryByArea('${dept.areaKey}',${d},'${currentSession}','reason',this.value)">
@@ -1966,13 +2022,15 @@ function renderTodayView() {
             ${(dept.resolved && dept.handling && dept.recovery)
               ? `<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;background:var(--green-light);border-radius:8px;padding:8px 12px;">
                    <span style="font-size:12px;color:var(--green);font-weight:700;">✅ 異常處理已完成${dept.confirmedBy ? '（已由組長確認）' : '（待組長確認）'}</span>
-                   <button onclick="openAbnormalModal('${dept.areaKey}',${d},'${currentSession}','${dept.key}')"
+                   ${locked ? '' : `<button onclick="openAbnormalModal('${dept.areaKey}',${d},'${currentSession}','${dept.key}')"
                      style="padding:5px 12px;background:white;border:1.5px solid var(--gray-300);color:var(--gray-700);
                             border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;white-space:nowrap;">
                      編輯
-                   </button>
+                   </button>`}
                  </div>`
-              : `<button onclick="openAbnormalModal('${dept.areaKey}',${d},'${currentSession}','${dept.key}')"
+              : locked
+                ? ''
+                : `<button onclick="openAbnormalModal('${dept.areaKey}',${d},'${currentSession}','${dept.key}')"
                    style="width:100%;padding:10px;background:var(--amber);color:white;border:none;
                           border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;">
                    📋 填寫異常處理紀錄
@@ -1980,7 +2038,8 @@ function renderTodayView() {
             }
           </div>
         </div>
-      </div>`).join('')}
+      </div>`;
+      }).join('')}
     `;
   }
 
@@ -2304,6 +2363,20 @@ function renderAbnormalModalBody() {
 function saveAbnormalModal() {
   if(!abnormalModalCtx) return;
   const { areaKey, day, session } = abnormalModalCtx;
+
+  const savedArea = currentArea;
+  currentArea = areaKey;
+  loadData(currentMonth);
+  const weekNum = Math.ceil(day / 7);
+  const checkerRec = getChecker(weekNum);
+  currentArea = savedArea;
+  loadData(currentMonth);
+  if(checkerRec) {
+    showToast('🔒 本週已完成核定，資料已鎖定無法修改', 'warn');
+    closeAbnormalModal();
+    return;
+  }
+
   const reason = document.getElementById('modal-abn-reason').value.trim();
   const resolved = document.getElementById('modal-abn-resolved').value;
   const recovery = document.getElementById('modal-abn-recovery').value.trim();
@@ -2342,9 +2415,26 @@ function submitAllDepts() {
   let hasError = false;
   let hasAbnormal = false;
 
+  // 未來日期一律擋下，不可登記
+  const nowYM = now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0');
+  const nowYMD = nowYM + '-' + String(now.getDate()).padStart(2,'0');
+  const selectedYMD = currentMonth + '-' + String(d).padStart(2,'0');
+  if(selectedYMD > nowYMD) {
+    showToast('⛔ 未來日期無法登記', 'error');
+    return;
+  }
+
+  const weekNum = Math.ceil(d / 7);
+  let allLocked = true;
+
   for(const dept of depts) {
     const areaKey = campus + '_' + dept.key;
     currentArea = areaKey;
+    loadData(currentMonth);
+    const checkerRec = getChecker(weekNum);
+    if(checkerRec) continue; // 該部門本週已核定鎖定，跳過驗證
+    allLocked = false;
+
     const e = getEntry(d, session);
     const tempVal = parseFloat(document.getElementById('tf-temp-'+dept.key)?.value);
     const maxVal = parseFloat(document.getElementById('tf-maxtemp-'+dept.key)?.value);
@@ -2363,13 +2453,21 @@ function submitAllDepts() {
     }
   }
 
-  if(hasError) { currentArea = savedArea; return; }
+  if(allLocked) {
+    currentArea = savedArea; loadData(currentMonth);
+    showToast('🔒 本週已完成核定，資料已鎖定無法修改', 'warn');
+    return;
+  }
 
-  // 全部通過，儲存並簽名
+  if(hasError) { currentArea = savedArea; loadData(currentMonth); return; }
+
+  // 全部通過，儲存並簽名（已鎖定的部門跳過，不覆寫）
   for(const dept of depts) {
     const areaKey = campus + '_' + dept.key;
     currentArea = areaKey;
     loadData(currentMonth); // 確保 logData 是該部門的資料
+    const checkerRec = getChecker(weekNum);
+    if(checkerRec) continue; // 該部門本週已核定鎖定，不可再覆寫
     const tempV = document.getElementById('tf-temp-'+dept.key)?.value;
     const maxV  = document.getElementById('tf-maxtemp-'+dept.key)?.value;
     const humV  = document.getElementById('tf-humid-'+dept.key)?.value;
@@ -2384,6 +2482,7 @@ function submitAllDepts() {
   }
 
   currentArea = savedArea;
+  loadData(currentMonth);
   const ss = document.getElementById('saveStatus');
   if(ss) { ss.textContent = `✔ 已由 ${currentUser.name} 於 ${timeStr} 確認登記`; ss.style.color='#16a34a'; ss.style.fontWeight='600'; }
   showToast(`登記確認完成（${session==='AM'?'上午':'下午'} ${timeStr}）`, 'success');
